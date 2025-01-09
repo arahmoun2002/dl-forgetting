@@ -27,7 +27,7 @@ from dataset.tinyimagenet import TinyImagenet
 
 
 # initialize a Dataset
-def get_dataset(root, data_name, train, transform, download=False):
+def get_dataset(root, data_name, train, transform, download=True):
     if 'mnist' in data_name:
         root = os.path.join(root, 'MNIST')
         dataset = MyMNIST(root, train, transform, download)
