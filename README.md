@@ -1,2 +1,5 @@
-# cl
-Continual Learning with Strong Experience Replay
+# Deep Learning Research Project ETH
+Catastrophical forgetting in Continuous Learning
+
+Adam Rahmoun - Mamoun Chami - Youssef Raoui
+
