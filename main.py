@@ -14,8 +14,8 @@ from utils.loggers import CsvLogger
     
 def get_args_parser():    
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type = str, default = 'ser')
-    parser.add_argument('--root', type = str, default = '/dl-forgetting/dataset')
+    parser.add_argument('--model', type = str, default = 'er')
+    parser.add_argument('--root', type = str, default = 'home/arahmoun/dl-forgetting/dataset/data')
     parser.add_argument('--dataset', type = str, default = 'cifar10')
     parser.add_argument('--n_classes', type = int, default = 10)
     parser.add_argument('--n_tasks', type = int, default = 5)
