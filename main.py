@@ -6,7 +6,7 @@ import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
-from model.ser import SER
+from model.experience_replay import ExperienceReplay
 
 from utils.data_utils import get_dataset, get_backbone, filter_classes, get_split
 from utils.data_utils import get_transform, transform_resize, progress_bar
@@ -97,7 +97,6 @@ def evaluate(cl_model, test_splits, setting, args):
     
     return accs, accs_task 
 
-
 def main(args):    
     if torch.cuda.is_available():
         args.device = torch.device('cuda', args.device_id)
@@ -108,7 +107,8 @@ def main(args):
                  
     tf_resize = transform_resize(args.dataset)
     
-    info = f'model: {args.model}, dataset: {args.dataset}({args.n_tasks} tasks)'                              
+    info = f'model: {args.model}, dataset: {args.dataset}({args.n_tasks} tasks)'    
+    print(info)                          
     print (f'alpha: {args.alpha}, beta: {args.beta}')    
 
     if args.dataset in ['perm-mnist', 'rot-mnist']:
@@ -124,7 +124,7 @@ def main(args):
     net = get_backbone(args.dataset, args.n_classes).to(args.device)     
     args.setting = setting
     
-    cl_model = SER(net, args)     
+    cl_model = ExperienceReplay(net, args)     
             
     results, results_task = [], []                
     test_splits = []

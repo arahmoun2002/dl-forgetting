@@ -98,6 +98,8 @@ class Buffer:
                 if task_labels is not None:
                     self.task_labels[index] = task_labels[i].to(self.device)
 
+
+    # Change this function to implement new data selection techniques
     def get_data(self, size: int, transform: transforms=None, return_index=False) -> Tuple:
         """
         Random samples a batch of size items.

@@ -1,8 +1,3 @@
-# Copyright 2022-present, Tao Zhuo
-# All rights reserved.
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
-
 import os, sys
 import torch
 import numpy as np

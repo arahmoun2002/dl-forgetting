@@ -19,9 +19,9 @@ def tf_tensor(xs, transforms):
 
     return xs.to(device=device)
 
-class SER:
+class ExperienceReplay:
     def __init__(self, net, args):
-        super(SER, self).__init__()                
+        super(ExperienceReplay, self).__init__()                
         self.net = net
         self.net_old = None
         self.optim = None        
@@ -50,11 +50,12 @@ class SER:
             buf_inputs, buf_labels, buf_logits = self.buffer.get_data(inputs.size(0), transform=augment)
             buf_outputs = self.net(buf_inputs)
             loss += F.cross_entropy(buf_outputs, buf_labels)            
-                     
-            loss += self.args.alpha * F.mse_loss(buf_outputs, buf_logits)
+
+            # these 3 lines are specific to the paper of strong experience replay         
+            #loss += self.args.alpha * F.mse_loss(buf_outputs, buf_logits) 
             
-            outputs_old = self.net_old(inputs_aug)
-            loss += self.args.beta * F.mse_loss(outputs, outputs_old)                           
+            #outputs_old = self.net_old(inputs_aug)
+            #loss += self.args.beta * F.mse_loss(outputs, outputs_old)                           
 
         loss.backward()
         self.optim.step()
