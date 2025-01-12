@@ -40,7 +40,11 @@ class ExperienceReplay:
         inputs_aug = tf_tensor(inputs, self.args.transform)    
         outputs = self.net(inputs_aug)
         loss = F.cross_entropy(outputs, labels)
-                
+        
+        # Calculate the absolute difference between true labels and predicted values
+        pred = torch.max(outputs, 1)[1]  # Get predicted class
+        diff_array = torch.abs(labels - pred).cpu().numpy()  # Absolute difference
+
         if self.net_old is not None:
             if self.args.setting == 'domain_il': 
                 augment = None
@@ -59,12 +63,8 @@ class ExperienceReplay:
 
         loss.backward()
         self.optim.step()
-                
-        if self.args.setting == 'domain_il': 
-            self.buffer.add_data(examples=inputs_aug, labels=labels, logits=outputs.data)
-        else:
-            self.buffer.add_data(examples=inputs, labels=labels, logits=outputs.data)
+            
         
-        return loss
+        return loss, diff_array
  
     

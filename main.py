@@ -47,16 +47,45 @@ def train(cl_model, train_loader, t, args):
         scheduler = torch.optim.lr_scheduler.MultiStepLR(cl_model.optim, [70, 90], gamma=0.1)
 
     args.stop_kd = False
+    
+    # Tensor to store cumulative differences per sample
+    num_samples = len(train_loader.dataset)
+    sample_differences = torch.zeros(num_samples, device=args.device)
+
     for epoch in range(args.n_epochs):            
         for batch_idx, data in enumerate(train_loader):      
             img, label = data
             img, label = img.to(args.device), label.to(args.device)
 
-            loss = cl_model.observe(img, label)
-            progress_bar(batch_idx, len(train_loader), t+1, epoch+1, loss.item())
+            # Observe and collect the differences
+            loss, diff_array = cl_model.observe(img, label)
+
+            # Track differences per sample
+            start_idx = batch_idx * train_loader.batch_size
+            end_idx = start_idx + img.size(0)
+            sample_differences[start_idx:end_idx] += torch.tensor(diff_array, device=args.device)
+            
+            progress_bar(batch_idx, len(train_loader), t + 1, epoch + 1, loss.item())
 
         if scheduler is not None:
             scheduler.step()
+            
+    # Normalize sample differences to create probabilities
+    total_difference = sample_differences.sum().item()
+    sample_weights = sample_differences / total_difference
+        
+    for batch_idx, data in enumerate(train_loader):
+        img, label = data
+        img, label = img.to(args.device), label.to(args.device)
+
+        # Get weights for the current batch
+        start_idx = batch_idx * train_loader.batch_size
+        end_idx = start_idx + img.size(0)
+        weights = sample_weights[start_idx:end_idx]
+
+        # Add data to the buffer
+        cl_model.buffer.add_data(img, labels=label, weights=weights)
+
                         
 def evaluate(cl_model, test_splits, setting, args):
     cl_model.net.eval()    
