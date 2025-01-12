@@ -11,7 +11,7 @@ from model.experience_replay import ExperienceReplay
 from utils.data_utils import get_dataset, get_backbone, filter_classes, get_split
 from utils.data_utils import get_transform, transform_resize, progress_bar
 from utils.loggers import CsvLogger    
-    
+
 def get_args_parser():    
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', type = str, default = 'er')
@@ -25,12 +25,19 @@ def get_args_parser():
     parser.add_argument('--n_epochs', type = int, default = 20)
     parser.add_argument('--batch_size', type = int, default = 32)
     
-    parser.add_argument('--alpha', type = float, default = 0.1)
+    parser.add_argument('--alpha', type = float, default = 0.2)
     parser.add_argument('--beta', type = float, default = 0.2)
 
     parser.add_argument('--device_id', type = int, default = 0)
     parser.add_argument('--seed', type = int, default = 123)
-        
+
+    parser.add_argument('--initial_weight', type=float, default=1e-3, help="Initial weight for sample differences")
+    parser.add_argument('--scale_factor', type=float, default=0.1, help="Factor for scaling differences in loss calculation")
+    parser.add_argument('--weight_multiplier', type=float, default=1.05, help="Multiplier for updating buffer weights")
+    parser.add_argument('--rehearsal_ratio', type=float, default=1.0, help="Ratio of buffer samples to use during rehearsal")
+    parser.add_argument('--cropping_weight', type=float, default=1.0, help="Maximum weight value")
+
+
     return parser
 
 def train(cl_model, train_loader, t, args):
@@ -50,7 +57,7 @@ def train(cl_model, train_loader, t, args):
     
     # Tensor to store cumulative differences per sample
     num_samples = len(train_loader.dataset)
-    sample_differences = torch.zeros(num_samples, device=args.device)
+    sample_differences = torch.full((num_samples,), args.initial_weight, device=args.device)
 
     for epoch in range(args.n_epochs):            
         for batch_idx, data in enumerate(train_loader):      
@@ -58,7 +65,7 @@ def train(cl_model, train_loader, t, args):
             img, label = img.to(args.device), label.to(args.device)
 
             # Observe and collect the differences
-            loss, diff_array = cl_model.observe(img, label)
+            loss, diff_array = cl_model.observe(img, label, args.rehearsal_ratio)
 
             # Track differences per sample
             start_idx = batch_idx * train_loader.batch_size
@@ -69,11 +76,17 @@ def train(cl_model, train_loader, t, args):
 
         if scheduler is not None:
             scheduler.step()
-            
-    # Normalize sample differences to create probabilities
-    total_difference = sample_differences.sum().item()
-    sample_weights = sample_differences / total_difference
-        
+
+
+    print("Updating Buffer...")
+    # Scale the differences using the SCALE_FACTOR
+    scaled_differences = torch.exp(args.scale_factor * sample_differences)
+
+    # Normalize the scaled differences to create probabilities
+    total_difference = scaled_differences.sum().item()
+
+    sample_weights = scaled_differences / total_difference
+    
     for batch_idx, data in enumerate(train_loader):
         img, label = data
         img, label = img.to(args.device), label.to(args.device)
@@ -85,7 +98,9 @@ def train(cl_model, train_loader, t, args):
 
         # Add data to the buffer
         cl_model.buffer.add_data(img, labels=label, weights=weights)
-
+        cl_model.buffer.update_weights(args.weight_multiplier, args.cropping_weight)
+        
+    print(cl_model.buffer.weights)
                         
 def evaluate(cl_model, test_splits, setting, args):
     cl_model.net.eval()    

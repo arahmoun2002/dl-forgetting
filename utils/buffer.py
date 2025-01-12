@@ -9,7 +9,6 @@ from typing import Tuple
 from torchvision import transforms
 from copy import deepcopy
 
-
 def reservoir(num_seen_examples: int, buffer_size: int, current_weights: torch.Tensor, new_weight: float) -> int:
     """
     Reservoir sampling algorithm that considers weights for replacement.
@@ -21,16 +20,15 @@ def reservoir(num_seen_examples: int, buffer_size: int, current_weights: torch.T
     """
     if num_seen_examples < buffer_size:
         return num_seen_examples  # Directly add if buffer is not full
-
+        
     # Insert the new weight at the start of the current weights
-    extended_weights = torch.cat([torch.tensor([new_weight], device=current_weights.device), current_weights])
+    extended_weights = torch.cat([torch.tensor([1 / (new_weight + 1e-6)], device=current_weights.device), 1 / (current_weights + 1e-6)])
 
     # Choose a random index based on the extended weights (without normalizing)
-    probabilities = extended_weights / extended_weights.sum()
-    chosen_index = torch.multinomial(probabilities, 1).item()
-
+    chosen_index = torch.multinomial(extended_weights, 1).item()
+    
     # Return the index - 1 to adjust for insertion at the start
-    return chosen_index - 1 if chosen_index > 0 else -1
+    return chosen_index - 1
 
 
 
@@ -66,7 +64,7 @@ class Buffer:
 
 
     def init_tensors(self, examples: torch.Tensor, labels: torch.Tensor,
-                     logits: torch.Tensor, task_labels: torch.Tensor) -> None:
+                     logits: torch.Tensor, task_labels: torch.Tensor, weights: torch.Tensor) -> None:
         """
         Initializes just the required tensors.
         :param examples: tensor containing the images
@@ -91,12 +89,11 @@ class Buffer:
         :param weights: tensor containing the weights for each sample
         """
         if not hasattr(self, 'examples'):
-            self.init_tensors(examples, labels, logits, task_labels)
+            self.init_tensors(examples, labels, logits, task_labels, weights)
 
         for i in range(examples.shape[0]):
             # Default weight is 1.0 if not provided
             new_weight = weights[i].item() if weights is not None else 1.0
-
             # Call the updated reservoir function to get the index for replacement
             index = reservoir(
                 self.num_seen_examples,
@@ -118,8 +115,7 @@ class Buffer:
                 if task_labels is not None:
                     self.task_labels[index] = task_labels[i].to(self.device)
                 self.weights[index] = new_weight
-
-
+        
 
     def get_data(self, size: int, transform: transforms = None, return_index=False) -> Tuple:
         """
@@ -201,3 +197,16 @@ class Buffer:
             if hasattr(self, attr_str):
                 delattr(self, attr_str)
         self.num_seen_examples = 0
+
+    def update_weights(self, multiplier: float, cropping_weight: float):
+        """
+        Updates the weights in the buffer by multiplying them with a given multiplier.
+        :param multiplier: The multiplier to scale the weights.
+        """
+        if hasattr(self, 'weights') and self.weights is not None:
+            # Scale the weights by the multiplier
+            self.weights *= multiplier
+            self.weights = torch.minimum(self.weights, torch.tensor(cropping_weight, device=self.weights.device))
+        else:
+            print("Weights attribute not initialized or empty. No update performed.")
+
