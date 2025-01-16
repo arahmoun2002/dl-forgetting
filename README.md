@@ -5,5 +5,4 @@ This project explores **catastrophic forgetting** in continuous learning (CL) an
 ## **How to Run the Project**
 1. Clone the repository and navigate to the project directory.
 2. Use the commands listed in the `run.sh` script to execute experiments:
-   ```bash
-   bash run.sh
+
