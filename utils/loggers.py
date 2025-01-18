@@ -11,7 +11,7 @@ class CsvLogger:
             os.makedirs(self.root)
     
     def write(self, setting, results, args):
-        params = ['buffer_size', 'alpha', 'beta', 'lr', 'batch_size', 'n_epochs']
+        params = ['buffer_size','lr', 'batch_size', 'n_epochs']
         
         columns = [f'task {i+1}' for i in range(args.n_tasks)] + ['forgetting', 'backward_transfer'] + params   
                 
@@ -24,8 +24,6 @@ class CsvLogger:
         
         row['buffer_size'] = args.buffer_size  
         
-        row['alpha'] = args.alpha
-        row['beta'] = args.beta
         row['lr'] = args.lr
         row['batch_size'] = args.batch_size
         row['n_epochs'] = args.n_epochs
