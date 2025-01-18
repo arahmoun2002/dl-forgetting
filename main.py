@@ -1,7 +1,7 @@
 import os, sys
 import numpy as np
 import argparse
-
+import math
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -25,18 +25,15 @@ def get_args_parser():
     parser.add_argument('--n_epochs', type = int, default = 20)
     parser.add_argument('--batch_size', type = int, default = 32)
     
-    parser.add_argument('--alpha', type = float, default = 0.2)
-    parser.add_argument('--beta', type = float, default = 0.2)
-
     parser.add_argument('--device_id', type = int, default = 0)
     parser.add_argument('--seed', type = int, default = 123)
 
     parser.add_argument('--initial_weight', type=float, default=1e-3, help="Initial weight for sample differences")
     parser.add_argument('--scale_factor', type=float, default=0.1, help="Factor for scaling differences in loss calculation")
-    parser.add_argument('--weight_multiplier', type=float, default=1.05, help="Multiplier for updating buffer weights")
+    parser.add_argument('--weight_multiplier', type=float, default=1.2, help="Multiplier for updating buffer weights")
     parser.add_argument('--rehearsal_ratio', type=float, default=1.0, help="Ratio of buffer samples to use during rehearsal")
     parser.add_argument('--cropping_weight', type=float, default=1.0, help="Maximum weight value")
-
+    parser.add_argument('--growth_factor', type=float, default=1.1, help="Maximum weight value")
 
     return parser
 
@@ -59,7 +56,8 @@ def train(cl_model, train_loader, t, args):
     num_samples = len(train_loader.dataset)
     sample_differences = torch.full((num_samples,), args.initial_weight, device=args.device)
 
-    for epoch in range(args.n_epochs):            
+    for epoch in range(args.n_epochs):    
+        epoch_impact = args.growth_factor ** epoch
         for batch_idx, data in enumerate(train_loader):      
             img, label = data
             img, label = img.to(args.device), label.to(args.device)
@@ -70,7 +68,8 @@ def train(cl_model, train_loader, t, args):
             # Track differences per sample
             start_idx = batch_idx * train_loader.batch_size
             end_idx = start_idx + img.size(0)
-            sample_differences[start_idx:end_idx] += torch.tensor(diff_array, device=args.device)
+            
+            sample_differences[start_idx:end_idx] += (diff_array * epoch_impact).to(args.device)
             
             progress_bar(batch_idx, len(train_loader), t + 1, epoch + 1, loss.item())
 
@@ -85,7 +84,10 @@ def train(cl_model, train_loader, t, args):
     # Normalize the scaled differences to create probabilities
     total_difference = scaled_differences.sum().item()
 
+    
+
     sample_weights = scaled_differences / total_difference
+    
     
     for batch_idx, data in enumerate(train_loader):
         img, label = data
@@ -95,12 +97,14 @@ def train(cl_model, train_loader, t, args):
         start_idx = batch_idx * train_loader.batch_size
         end_idx = start_idx + img.size(0)
         weights = sample_weights[start_idx:end_idx]
+        
 
         # Add data to the buffer
         cl_model.buffer.add_data(img, labels=label, weights=weights)
         cl_model.buffer.update_weights(args.weight_multiplier, args.cropping_weight)
         
-    print(cl_model.buffer.weights)
+    # Debugging buffer weights after the update
+    print("Buffer Weights After Update:", cl_model.buffer.weights)
                         
 def evaluate(cl_model, test_splits, setting, args):
     cl_model.net.eval()    
@@ -153,7 +157,6 @@ def main(args):
     
     info = f'model: {args.model}, dataset: {args.dataset}({args.n_tasks} tasks)'    
     print(info)                          
-    print (f'alpha: {args.alpha}, beta: {args.beta}')    
 
     if args.dataset in ['perm-mnist', 'rot-mnist']:
         setting = 'domain_il'
@@ -213,7 +216,9 @@ def main(args):
     # task_il results when setting is class_il
     if setting == 'class_il':          
         csv_logger.write('task_il', results_task, args)
-        
+
+
+
 
 if __name__ == '__main__':
     args = get_args_parser().parse_args()    
