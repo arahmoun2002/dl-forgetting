@@ -9,7 +9,7 @@ class MyCIFAR100(CIFAR100):
     """
     Overrides the CIFAR100 dataset to change the getitem function.
     """
-    def __init__(self, root, train=True, transform=None, download=False):          
+    def __init__(self, root, train=True, transform=None, download=True):          
         super(MyCIFAR100, self).__init__(root=root, train=train, transform=transform, download=download)
         self.transform = transform
         
