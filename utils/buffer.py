@@ -147,7 +147,6 @@ class Buffer:
         else:
             return ret_tuple
 
-
     def get_data_by_index(self, indexes, transform: transforms=None) -> Tuple:
         """
         Returns the data by the given index.
@@ -206,7 +205,10 @@ class Buffer:
         if hasattr(self, 'weights') and self.weights is not None:
             # Scale the weights by the multiplier
             self.weights *= multiplier
+            
             self.weights = torch.minimum(self.weights, torch.tensor(cropping_weight, device=self.weights.device))
+            
+            
         else:
             print("Weights attribute not initialized or empty. No update performed.")
 
